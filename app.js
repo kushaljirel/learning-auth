@@ -5,7 +5,7 @@ dotenv.config({
 
 import express from "express";
 import bodyParser from "body-parser";
-import md5 from 'md5'
+import bcrypt from 'bcrypt'
 
 import connectDB from "./connectDB.js";
 import { User } from "./model/models.js";
@@ -21,6 +21,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.set("views", "./views");
+
 
 // home route
 app.get("/", (req, res) => {
@@ -39,10 +40,12 @@ app
 
     try {
       const foundUser = await User.findOne({ username: username });
+      const compareResult = await bcrypt.compare(password, foundUser.password)
+
       if (!foundUser) {
         res.send("User not found!");
       } else {
-        if (foundUser.password === md5(password)) {
+        if (compareResult) {
           console.log("User Logged Successfully");
           res.redirect("/secrets");
         } else {
@@ -66,10 +69,14 @@ app
     const username = req.body.username;
     const password = req.body.password;
 
+    // for bcrypt password encryption
+    const saltRounds = 10
+    const hash  = await bcrypt.hash(password, saltRounds)
+
     try {
       const user = new User({
-        username: req.body.username,
-        password: md5(req.body.password),
+        username: username,
+        password: hash,
       });
       await user.save();
       console.log("User registered Successfully");
