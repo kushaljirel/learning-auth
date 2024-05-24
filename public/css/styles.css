@@ -12,5 +12,6 @@ body {
   text-align: center;
   font-size: 2rem;
   color: #fff;
-  background-color: #000;
+  background-color: #313131;
+  border-radius: 8px;
 }
