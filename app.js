@@ -10,22 +10,28 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
+import { Strategy as GitHubStrategy } from "passport-github2";
 
 import connectDB from "./connectDB.js";
 import { User } from "./model/models.js";
 import { Secret } from "./model/models.js";
 
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
 
 // Database connection
 await connectDB();
 
 // middleware
+app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.set("view engine", "ejs");
 app.set("views", "./views");
+
 
 // setup session middleware
 app.use(
@@ -46,6 +52,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+
 // configure local strategy for passport
 passport.use(
   new LocalStrategy(async (username, password, done) => {
@@ -60,10 +67,11 @@ passport.use(
       }
       return done(null, foundUser);
     } catch (err) {
-      return done(err)
+      return done(err);
     }
   })
 );
+
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -78,10 +86,84 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+
+// passport strategies declaration
+passport.use(
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/auth/google/secrets",
+    },
+    function (accessToken, refreshToken, profile, cb) {
+      User.findOrCreate({ googleId: profile.id }, function (err, user) {
+        return cb(err, user);
+      });
+    }
+  )
+);
+
+
+
+passport.use(
+  new GitHubStrategy(
+    {
+      clientID: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      callbackURL: "http://localhost:3000/auth/github/secrets",
+    },
+    function (accessToken, refreshToken, profile, done) {
+      console.log(profile)
+      User.findOrCreate({ githubId: profile.id }, function (err, user) {
+        return done(err, user);
+      });
+    }
+  )
+);
+
+
+
 // home route
 app.get("/", (req, res) => {
   res.render("home");
 });
+
+
+
+// google auth route
+app.get(
+  "/auth/google",
+  passport.authenticate("google", { scope: ["profile"] })
+);
+
+app.get(
+  "/auth/google/secrets",
+  passport.authenticate("google", { failureRedirect: "/login" }),
+  function (req, res) {
+    console.log("successfully logged in with google");
+    // Successful authentication, redirect secrets.
+    res.redirect("/secrets");
+  }
+);
+
+
+
+// github auth route
+app.get(
+  "/auth/github",
+  passport.authenticate("github", { scope: ["user:email"] })
+);
+
+app.get(
+  "/auth/github/secrets",
+  passport.authenticate("github", { failureRedirect: "/login" }),
+  function (req, res) {
+    // Successful authentication, redirect secrets.
+    res.redirect("/secrets");
+  }
+);
+
+
 
 // register route
 app
@@ -117,6 +199,7 @@ app
     }
   });
 
+
 // login route
 app
   .route("/login")
@@ -131,14 +214,17 @@ app
     })
   );
 
+
 // secret route
 app.route("/secrets").get(async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).redirect("/login");
   }
-  const foundSecrets = await Secret.find({})
-  res.render("secrets", {foundSecrets});
+  const foundSecrets = await Secret.find({});
+  res.render("secrets", { foundSecrets });
 });
+
+
 
 // submit secrets route
 app
@@ -164,6 +250,8 @@ app
     }
   });
 
+
+
 // logout route
 app.route("/logout").get((req, res) => {
   req.logout((err) => {
@@ -171,6 +259,8 @@ app.route("/logout").get((req, res) => {
     else return res.status(200).redirect("/");
   });
 });
+
+
 
 // listening to port
 app.listen(PORT, () => {

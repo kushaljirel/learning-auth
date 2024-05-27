@@ -1,16 +1,12 @@
 import mongoose, { Schema } from "mongoose";
+import findOrCreatePlugin from "mongoose-findorcreate";
 
 const userSchema = new Schema(
   {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
+    username: String,
+    password: String,
+    googleId: String,
+    githubId: String
   },
   { timestamps: true }
 );
@@ -24,6 +20,8 @@ const secretSchema = new Schema(
   },
   { timestamps: true }
 );
+
+userSchema.plugin(findOrCreatePlugin);
 
 const User = mongoose.model("User", userSchema);
 const Secret = mongoose.model("Secret", secretSchema);
