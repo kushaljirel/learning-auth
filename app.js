@@ -15,7 +15,6 @@ import { Strategy as GitHubStrategy } from "passport-github2";
 
 import connectDB from "./connectDB.js";
 import { User } from "./model/models.js";
-import { Secret } from "./model/models.js";
 
 
 const app = express();
@@ -113,7 +112,6 @@ passport.use(
       callbackURL: "http://localhost:3000/auth/github/secrets",
     },
     function (accessToken, refreshToken, profile, done) {
-      console.log(profile)
       User.findOrCreate({ githubId: profile.id }, function (err, user) {
         return done(err, user);
       });
@@ -158,6 +156,7 @@ app.get(
   "/auth/github/secrets",
   passport.authenticate("github", { failureRedirect: "/login" }),
   function (req, res) {
+    console.log("successfully logged in with github");
     // Successful authentication, redirect secrets.
     res.redirect("/secrets");
   }
@@ -220,7 +219,8 @@ app.route("/secrets").get(async (req, res) => {
   if (!req.isAuthenticated()) {
     return res.status(401).redirect("/login");
   }
-  const foundSecrets = await Secret.find({});
+  const foundUser = await User.findById(req.user.id);
+  const foundSecrets = foundUser.secrets
   res.render("secrets", { foundSecrets });
 });
 
@@ -236,12 +236,15 @@ app
     res.render("submit");
   })
   .post(async (req, res) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).redirect("/login");
+    }
     try {
-      const userSecret = await Secret({
-        secret: req.body.secret,
-      });
-      userSecret.save();
-      console.log("secret message saved");
+      const foundUserById = await User.findById(req.user.id)
+      foundUserById.secrets.push(req.body.secret);
+      await foundUserById.save();
+
+      console.log("secret message saved successfully");
       res.redirect("/secrets");
     } catch (error) {
       console.log("couldn/'t save secret message");
@@ -259,7 +262,6 @@ app.route("/logout").get((req, res) => {
     else return res.status(200).redirect("/");
   });
 });
-
 
 
 // listening to port

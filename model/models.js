@@ -6,24 +6,15 @@ const userSchema = new Schema(
     username: String,
     password: String,
     googleId: String,
-    githubId: String
+    githubId: String,
+    secrets: [String]
   },
   { timestamps: true }
 );
 
-const secretSchema = new Schema(
-  {
-    secret: {
-      type: String,
-      required: true,
-    },
-  },
-  { timestamps: true }
-);
 
 userSchema.plugin(findOrCreatePlugin);
 
 const User = mongoose.model("User", userSchema);
-const Secret = mongoose.model("Secret", secretSchema);
 
-export { User, Secret };
+export { User };
